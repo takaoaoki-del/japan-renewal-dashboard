@@ -46,7 +46,7 @@
   }
 
   /* ── LAYOUT ── */
-  .main { max-width: 1200px; margin: 0 auto; padding: 28px 40px 60px; }
+  .main { max-width: 1280px; margin: 0 auto; padding: 28px 40px 60px; }
 
   /* ── KPI CARDS ── */
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
@@ -117,6 +117,10 @@
   .util-bar { width: 52px; height: 4px; background: #334155; border-radius: 2px; flex-shrink: 0; }
   .util-fill { height: 100%; border-radius: 2px; max-width: 100%; }
 
+  .wau-cell{display:flex;align-items:center;gap:7px;}
+  .spark-wrap{display:flex;align-items:flex-end;gap:2px;height:20px;}
+  .wau-num{font-weight:700;font-size:13px;min-width:24px;text-align:right;}
+  .wau-pct{font-size:11px;font-weight:600;min-width:44px;}
   /* ── DETAIL PANEL ── */
   .detail {
     background: var(--bg2); border-radius: var(--radius);
@@ -134,7 +138,7 @@
   .detail-close { background: none; border: none; color: var(--txt3); font-size: 22px; cursor: pointer; padding: 0; line-height: 1; }
   .detail-close:hover { color: var(--txt); }
 
-  .detail-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+  .detail-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 18px; }
   .d-kpi { background: var(--bg4); border-radius: var(--radius-sm); padding: 14px 16px; }
   .d-kpi-l { font-size: 11px; color: var(--txt3); margin-bottom: 4px; }
   .d-kpi-v { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
@@ -252,6 +256,7 @@
       <button class="fbtn active-teal" data-sort="risk" onclick="setSort(this)">リスク＋更新日</button>
       <button class="fbtn" data-sort="closeDate" onclick="setSort(this)">更新日</button>
       <button class="fbtn" data-sort="atr" onclick="setSort(this)">ATR</button>
+      <button class="fbtn" data-sort="wau" onclick="setSort(this)">WAU</button>
       <button class="fbtn" data-sort="lastContact" onclick="setSort(this)">未接触日数</button>
     </div>
   </div>
@@ -267,6 +272,7 @@
           <th>ATR</th>
           <th>Churn / New ARR</th>
           <th>利用率</th>
+          <th>WAU &amp; 6Wトレンド</th>
           <th>未接触</th>
           <th>オーナー</th>
           <th>Stage</th>
@@ -290,6 +296,7 @@
       <div class="d-kpi"><div class="d-kpi-l">New ARR</div><div class="d-kpi-v" id="d-new" style="color:#4ADE80"></div></div>
       <div class="d-kpi"><div class="d-kpi-l">Churn ARR</div><div class="d-kpi-v" id="d-churn" style="color:#F87171"></div></div>
       <div class="d-kpi"><div class="d-kpi-l">利用率</div><div class="d-kpi-v" id="d-util"></div></div>
+      <div class="d-kpi"><div class="d-kpi-l">WAU（6週トレンド）</div><div class="d-kpi-v" id="d-wau"></div><div style="font-size:11px;color:var(--txt3);margin-top:3px" id="d-wau-pct"></div><div style="display:flex;align-items:flex-end;gap:3px;height:32px;margin-top:8px" id="d-wau-spark"></div></div>
     </div>
     <div class="detail-note">
       <div class="detail-note-label">📋 状況メモ</div>
@@ -324,54 +331,65 @@
 </div>
 
 <script>
+
+function genSpark(wau,pct6w){
+  if(wau==null)return[0,0,0,0,0,0];
+  const end=wau,start=(pct6w!=null&&pct6w!==0)?end/(1+pct6w/100):end,bars=[];
+  for(let i=0;i<6;i++)bars.push(Math.max(0,Math.round(start+(end-start)*(i/5))));
+  return bars;
+}
+function wauColor(pct){
+  if(pct==null)return"#64748B";
+  if(pct<=-50)return"#F87171";if(pct<-15)return"#FBBF24";if(pct>=20)return"#4ADE80";return"#38BDF8";
+}
 const DATA = [
-  { id:1,  name:"Jupiter Shop Channel",      closeDate:"2026-05-20", atr:103004,  newArr:46996,  churnArr:0,       util:149.5, lastContact:40,  owner:"Hirose Kazuki", stage:"6 - Negotiation",      segment:"Major Enterprise",    source:"AE",      comp:null,                   risk:"grn",
+  { id:1,  name:"Jupiter Shop Channel",      closeDate:"2026-05-20", atr:103004,  newArr:46996,  churnArr:0,       util:149.5, lastContact:40,  owner:"Hirose Kazuki", stage:"6 - Negotiation",      segment:"Major Enterprise",    source:"AE",      comp:null,                   wau:8,wau6w:-33,wauTrend:"Healthy",risk:"grn",
     note:"Stage 6 Negotiation。今月クローズ最有力。最終条件詰め＆署名取得を今週中に。",
     action:"今週中に最終条件確認・署名取得" },
-  { id:2,  name:"KANSAI ELECTRIC POWER",     closeDate:"2026-06-19", atr:50000,   newArr:0,      churnArr:-20000,  util:84.3,  lastContact:96,  owner:"Aoki Taka",     stage:"3 - Biz & Tech Eval",  segment:"Major Enterprise",    source:"Partner", comp:null,                   risk:"red",
+  { id:2,  name:"KANSAI ELECTRIC POWER",     closeDate:"2026-06-19", atr:50000,   newArr:0,      churnArr:-20000,  util:84.3,  lastContact:96,  owner:"Aoki Taka",     stage:"3 - Biz & Tech Eval",  segment:"Major Enterprise",    source:"Partner", comp:null,                   wau:1,wau6w:0,wauTrend:"Watch",risk:"red",
     note:"部分チャーン $20K 想定。eAgency経由でAI機能（AI Context含む）を3/17に紹介済み。主担当が「カンデンペイ」に異動、支払いイベントデータ連携を更新トリガーに。",
     action:"GW明け大阪訪問（eAgency調整中・Zhu He参加想定）— Next Step: 4/30",
     nextStep:`Apr 15: 4月中の訪問はスケジュールが組めず、GW明けでの訪問でeA側で調整中、Zhu Heが参加する想定\n\nMar 17: eAgency introduced AI capabilities (including AI Context) to the client. Since the main contact has taken over "Kanden Pay," we will drive discussions to ingest payment event data for the upcoming renewal. Target: In-person visit to Osaka in April.`,
     nextStepDate:"2026-04-30" },
-  { id:3,  name:"JTB Corp",                  closeDate:"2026-06-30", atr:63000,   newArr:22600,  churnArr:0,       util:104.4, lastContact:1,   owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"AE",      comp:null,                   risk:"grn",
+  { id:3,  name:"JTB Corp",                  closeDate:"2026-06-30", atr:63000,   newArr:22600,  churnArr:0,       util:104.4, lastContact:1,   owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"AE",      comp:null,                   wau:3,wau6w:200,wauTrend:"Watch",risk:"grn",
     note:"拡張 +$22.6K 込み。利用率良好。Stage 2 → 前進を加速。",
     action:"Stage 3 への進捗加速" },
-  { id:4,  name:"East Japan Railway",         closeDate:"2026-06-30", atr:20000,   newArr:0,      churnArr:-20000,  util:14.3,  lastContact:0,   owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"AE",      comp:null,                   risk:"red",
+  { id:4,  name:"East Japan Railway",         closeDate:"2026-06-30", atr:20000,   newArr:0,      churnArr:-20000,  util:14.3,  lastContact:0,   owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"AE",      comp:null,                   wau:6,wau6w:200,wauTrend:"Watch",risk:"red",
     note:"利用率14.3%が深刻。接触済みだが更新 Justification の整理が急務。",
     action:"更新根拠の整理・Value articulation" },
-  { id:5,  name:"anaguma",                   closeDate:"2026-06-30", atr:35496,   newArr:0,      churnArr:-35496,  util:45.1,  lastContact:1,   owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Velocity",            source:"AE",      comp:null,                   risk:"red",
+  { id:5,  name:"anaguma",                   closeDate:"2026-06-30", atr:35496,   newArr:0,      churnArr:-35496,  util:45.1,  lastContact:1,   owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Velocity",            source:"AE",      comp:null,                   wau:3,wau6w:0,wauTrend:"Watch",risk:"red",
     note:"全額チャーン想定。来月末クローズ期限。今月中の更新意思決定が必須。",
     action:"今月中に更新意思を確定" },
-  { id:6,  name:"ExaWizards",                closeDate:"2026-07-15", atr:45000,   newArr:3600,   churnArr:0,       util:58.9,  lastContact:12,  owner:"Hirose Kazuki", stage:"6 - Negotiation",      segment:"Velocity",            source:"AE",      comp:null,                   risk:"grn",
+  { id:6,  name:"ExaWizards",                closeDate:"2026-07-15", atr:45000,   newArr:3600,   churnArr:0,       util:58.9,  lastContact:12,  owner:"Hirose Kazuki", stage:"6 - Negotiation",      segment:"Velocity",            source:"AE",      comp:null,                   wau:31,wau6w:11,wauTrend:"Watch",risk:"grn",
     note:"Stage 6 Negotiation。クローズ間近。拡張 +$3.6K も含む。",
     action:"クローズ日程の最終確認" },
-  { id:7,  name:"Nintendo",                  closeDate:"2026-07-31", atr:96000,   newArr:54000,  churnArr:0,       util:137.8, lastContact:125, owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"AE",      comp:null,                   risk:"yel",
+  { id:7,  name:"Nintendo",                  closeDate:"2026-07-31", atr:96000,   newArr:54000,  churnArr:0,       util:137.8, lastContact:125, owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"AE",      comp:null,                   wau:9,wau6w:50,wauTrend:"Healthy",risk:"yel",
     note:"125日間未接触が懸念。利用率138%は overage / 超過リスクあり。拡張 +$54K 込みだが進捗が止まっている。",
     action:"EBR / QBR をスケジュール設定" },
-  { id:8,  name:"Amer Sports Japan",         closeDate:"2026-08-14", atr:24000,   newArr:0,      churnArr:-24000,  util:0.5,   lastContact:109, owner:"Aoki Taka",     stage:"2 - Qualification",    segment:"Emerging Enterprise", source:"Partner", comp:null,                   risk:"red",
+  { id:8,  name:"Amer Sports Japan",         closeDate:"2026-08-14", atr:24000,   newArr:0,      churnArr:-24000,  util:0.5,   lastContact:109, owner:"Aoki Taka",     stage:"2 - Qualification",    segment:"Emerging Enterprise", source:"Partner", comp:null,                   wau:3,wau6w:-50,wauTrend:"Healthy",risk:"red",
     note:"利用率0.5%。マーケティングユーザーの活用が課題。TCI経由で隔週イネーブルメントを実施中。Phase 2移行に向けてTCIがサポート継続中。",
     action:"4/22 10時 TCI+Zhu Heで現状ヒアリング・更新ステップを整理 — Next Step: 4/22",
     nextStep:"Apr 15: 4/22 10時からZhuさんも入ってまずはTCIと会話。現在の状況をヒアリングして、リニューアルに向けて必要なステップの洗い出し。\n\nApr 7: TCI森内さんからレスなし、引き続きコンタクト試みる\n\nMar 24: 新年度に入ったら、リニューアルの会話を森内さんと開始する\n\nFeb 13: Usage among marketing users remains a challenge. Driving adoption via bi-weekly enablement sessions and support.",
     nextStepDate:"2026-04-22" },
-  { id:9,  name:"Ryohin Keikaku (MUJI)",     closeDate:"2026-08-20", atr:99144,   newArr:0,      churnArr:-99144,  util:114.7, lastContact:42,  owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"Partner", comp:"GA / Adobe Analytics", risk:"red",
+  { id:9,  name:"Ryohin Keikaku (MUJI)",     closeDate:"2026-08-20", atr:99144,   newArr:0,      churnArr:-99144,  util:114.7, lastContact:42,  owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"Partner", comp:"GA / Adobe Analytics", wau:0,wau6w:-100,wauTrend:"Concern",risk:"red",
     note:"競合 GA / Adobe Analytics が検討中。全額チャーン $99K 想定。利用率は高いが競合への切り替えを検討か。",
     action:"競合対策・Value再提示" },
-  { id:10, name:"Coconala",                  closeDate:"2026-08-31", atr:67392,   newArr:5391,   churnArr:0,       util:56.6,  lastContact:29,  owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"AE",      comp:null,                   risk:"yel",
+  { id:10, name:"Coconala",                  closeDate:"2026-08-31", atr:67392,   newArr:5391,   churnArr:0,       util:56.6,  lastContact:29,  owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"AE",      comp:null,                   wau:31,wau6w:29,wauTrend:"Healthy",risk:"yel",
     note:"利用率普通。拡張 +$5.4K 想定。状況モニタリング継続。",
     action:"月次チェックイン継続" },
-  { id:11, name:"Fantia",                    closeDate:"2026-08-31", atr:196800,  newArr:0,      churnArr:-196800, util:73.7,  lastContact:252, owner:"Aoki Taka",     stage:"3 - Biz & Tech Eval",  segment:"Emerging Enterprise", source:"Partner", comp:"Looker",               risk:"red",
+  { id:11, name:"Fantia",                    closeDate:"2026-08-31", atr:196800,  newArr:0,      churnArr:-196800, util:73.7,  lastContact:252, owner:"Aoki Taka",     stage:"3 - Biz & Tech Eval",  segment:"Emerging Enterprise", source:"Partner", comp:"Looker",               wau:5,wau6w:-50,wauTrend:"Healthy",risk:"red",
     note:"252日間未接触が最大懸念。競合 Looker が進行中。チャーンリスク最大 $196.8K。",
     action:"今週中に緊急接触・競合状況確認" },
-  { id:12, name:"StylingLife (PLAZA)",       closeDate:"2026-09-18", atr:11664,   newArr:933,    churnArr:0,       util:127.4, lastContact:523, owner:"Aoki Taka",     stage:"2 - Qualification",    segment:"Major Enterprise",    source:"Partner", comp:null,                   risk:"yel",
+  { id:12, name:"StylingLife (PLAZA)",       closeDate:"2026-09-18", atr:11664,   newArr:933,    churnArr:0,       util:127.4, lastContact:523, owner:"Aoki Taka",     stage:"2 - Qualification",    segment:"Major Enterprise",    source:"Partner", comp:null,                   wau:3,wau6w:-40,wauTrend:"Watch",risk:"yel",
     note:"523日間未接触は異常値。拡張 $933 は形式的か要確認。CSMと現状確認が必要。",
     action:"CSMと状況確認・接触計画を立てる" },
-  { id:13, name:"Linc'well",                 closeDate:"2026-09-30", atr:95000,   newArr:10000,  churnArr:0,       util:77.7,  lastContact:0,   owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"AE",      comp:null,                   risk:"grn",
+  { id:13, name:"Linc'well",                 closeDate:"2026-09-30", atr:95000,   newArr:10000,  churnArr:0,       util:77.7,  lastContact:0,   owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"AE",      comp:null,                   wau:57,wau6w:-23,wauTrend:"Healthy",risk:"grn",
     note:"接触済み。拡張 +$10K 込みで順調。継続モニタリング。",
     action:"進捗確認・Stage 前進" },
-  { id:14, name:"Honda Motor",               closeDate:"2026-09-30", atr:362500,  newArr:43066,  churnArr:0,       util:58.3,  lastContact:2,   owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"AE",      comp:null,                   risk:"grn",
+  { id:14, name:"Honda Motor",               closeDate:"2026-09-30", atr:362500,  newArr:43066,  churnArr:0,       util:58.3,  lastContact:2,   owner:"Hirose Kazuki", stage:"2 - Qualification",    segment:"Major Enterprise",    source:"AE",      comp:null,                   wau:60,wau6w:-17,wauTrend:"Healthy",risk:"grn",
     note:"ATR最大 $362.5K。接触頻度良好。Stage 2 のまま停滞しないよう注意。拡張 +$43K も重要。",
     action:"Stage 前進・拡張商談の深化" },
-  { id:15, name:"MIIDAS",                    closeDate:"2026-09-30", atr:27600,   newArr:2208,   churnArr:0,       util:139.8, lastContact:105, owner:"Aoki Taka",     stage:"2 - Qualification",    segment:"Emerging Enterprise", source:"Partner", comp:null,                   risk:"yel",
+  { id:15, name:"MIIDAS",                    closeDate:"2026-09-30", atr:27600,   newArr:2208,   churnArr:0,       util:139.8, lastContact:105, owner:"Aoki Taka",     stage:"2 - Qualification",    segment:"Emerging Enterprise", source:"Partner", comp:null,                   wau:0,wau6w:-100,wauTrend:"Watch",risk:"yel",
     note:"過剰使用(140%)＋105日未接触。更新時に usage 調整交渉が必要。",
     action:"接触・Usage調整の事前交渉" },
 ];
@@ -426,6 +444,11 @@ function renderTable() {
     const uc = utilColor(d.util);
     const cc = contactColor(d.lastContact);
     const utilW = Math.min(d.util, 160) / 160 * 100;
+    const wc=wauColor(d.wau6w);
+    const bars=genSpark(d.wau??0,d.wau6w);
+    const maxB=Math.max(...bars,1);
+    const sparkHtml=bars.map(v=>`<div style="width:5px;height:${Math.max(2,Math.round(v/maxB*20))}px;background:${wc};border-radius:1px;flex-shrink:0"></div>`).join("");
+    const wauPctStr=d.wau6w!=null?(d.wau6w>=0?"+"+d.wau6w+"%":d.wau6w+"%"):"\u2014";
     const deltaStr = d.churnArr < 0
       ? `<span style="color:#F87171;font-weight:600">▼${fmt(d.churnArr)}</span>`
       : d.newArr > 0
@@ -444,6 +467,7 @@ function renderTable() {
             <span style="color:${uc};font-weight:600;font-size:12px">${d.util}%</span>
           </div>
         </td>
+        <td><div style="display:flex;align-items:center;gap:7px"><div style="display:flex;align-items:flex-end;gap:2px;height:20px">${sparkHtml}</div><span style="font-weight:700;font-size:13px;min-width:24px;text-align:right;color:${wc}">${d.wau??0}</span><span style="font-size:11px;font-weight:600;color:${wc}">${wauPctStr}</span></div></td>
         <td style="color:${cc};font-weight:${d.lastContact>90?'700':'400'}">${d.lastContact}日</td>
         <td style="color:#94A3B8;white-space:nowrap">${d.owner.split(" ")[1] || d.owner}</td>
         <td style="color:#475569;font-size:11px">${d.stage.replace("- ","")}</td>
@@ -466,6 +490,12 @@ function toggleDetail(id) {
   const uEl = document.getElementById("d-util");
   uEl.textContent = d.util + "%";
   uEl.style.color = utilColor(d.util);
+  const wc2=wauColor(d.wau6w);
+  const wauEl=document.getElementById("d-wau");if(wauEl){wauEl.textContent=d.wau??0;wauEl.style.color=wc2;}
+  const wauPEl=document.getElementById("d-wau-pct");
+  if(wauPEl){wauPEl.textContent=(d.wau6w!=null?(d.wau6w>=0?"6W: +"+d.wau6w+"%":"6W: "+d.wau6w+"%"):"6W: \u2014")+"  "+(d.wauTrend||"");wauPEl.style.color=wc2;}
+  const spEl=document.getElementById("d-wau-spark");
+  if(spEl){const b2=genSpark(d.wau??0,d.wau6w);const m2=Math.max(...b2,1);spEl.innerHTML=b2.map(v=>`<div style="width:10px;height:${Math.max(2,Math.round(v/m2*32))}px;background:${wc2};border-radius:2px;flex-shrink:0"></div>`).join("");}
   document.getElementById("d-note").textContent = d.note;
   const cEl = document.getElementById("d-comp");
   cEl.innerHTML = d.comp ? `<span class="comp-tag">⚔️ 競合: ${d.comp}</span>` : "";
