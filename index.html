@@ -45,6 +45,41 @@
     border: 1px solid var(--border); white-space: nowrap;
   }
 
+  /* ── TOOLTIP ── */
+  .tip-wrap { display: inline-flex; align-items: center; gap: 4px; position: relative; }
+  .tip-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #334155; color: #94A3B8;
+    font-size: 9px; font-weight: 700; cursor: default;
+    flex-shrink: 0; line-height: 1; font-style: normal;
+    border: 1px solid #475569;
+    transition: background .15s, color .15s;
+  }
+  .tip-icon:hover { background: #475569; color: #E2E8F0; }
+  .tip-box {
+    display: none;
+    position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    background: #1E293B; border: 1px solid #475569; border-radius: 8px;
+    padding: 10px 13px; width: 220px; font-size: 11px; color: #CBD5E1;
+    line-height: 1.6; font-weight: 400; text-transform: none; letter-spacing: 0;
+    z-index: 999; pointer-events: none; white-space: normal;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .tip-box::before {
+    content: ''; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-bottom-color: #475569;
+  }
+  .tip-box::after {
+    content: ''; position: absolute; bottom: calc(100% - 1px); left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-bottom-color: #1E293B;
+  }
+  .tip-wrap:hover .tip-box { display: block; }
+  /* prevent tooltip from overflowing off right edge */
+  th:last-child .tip-box, th:nth-last-child(2) .tip-box { left: auto; right: 0; transform: none; }
+  th:last-child .tip-box::before, th:nth-last-child(2) .tip-box::before { left: auto; right: 12px; transform: none; }
+  th:last-child .tip-box::after, th:nth-last-child(2) .tip-box::after { left: auto; right: 12px; transform: none; }
+
   /* ── LAYOUT ── */
   .main { max-width: 1280px; margin: 0 auto; padding: 28px 40px 60px; }
 
@@ -223,7 +258,12 @@
       <div class="kpi-sub">🔴 HIGH RISK 6件</div>
     </div>
     <div class="kpi" style="--kpi-color:#4ADE80">
-      <div class="kpi-label">拡張機会 (New ARR)</div>
+      <div class="kpi-label">
+        <span class="tip-wrap" style="text-transform:uppercase;letter-spacing:.05em;">拡張機会 (New ARR)
+          <i class="tip-icon">?</i>
+          <span class="tip-box">更新時に追加される拡張・アップセルのARR合計。既存契約のアップグレードや新機能追加が含まれる。チャーンとは別の増収機会。</span>
+        </span>
+      </div>
       <div class="kpi-value">+$234K</div>
       <div class="kpi-sub">拡張案件 9件</div>
     </div>
@@ -269,11 +309,36 @@
           <th>リスク</th>
           <th>アカウント名</th>
           <th>更新日</th>
-          <th>ATR</th>
-          <th>Churn / New ARR</th>
-          <th>利用率</th>
-          <th>WAU &amp; 6Wトレンド</th>
-          <th>未接触</th>
+          <th>
+            <span class="tip-wrap">ATR
+              <i class="tip-icon">?</i>
+              <span class="tip-box">Available to Renew（更新ベースARR）。今期の更新対象となる契約ARRの合計。チャーン・拡張前の基準額。</span>
+            </span>
+          </th>
+          <th>
+            <span class="tip-wrap">Churn / New ARR
+              <i class="tip-icon">?</i>
+              <span class="tip-box">▼ Churn ARR: 更新時に失う見込みのARR（マイナス値）。▲ New ARR: 更新と同時に追加される拡張・アップセルのARR。</span>
+            </span>
+          </th>
+          <th>
+            <span class="tip-wrap">利用率
+              <i class="tip-icon">?</i>
+              <span class="tip-box">期末予測消化率（Projected_Vol_Usage_Current_Period）。契約イベント数に対して、今期末までに消化が見込まれる割合。50%未満は低活用リスク。90%超は過剰消費リスク。</span>
+            </span>
+          </th>
+          <th>
+            <span class="tip-wrap">WAU &amp; 6Wトレンド
+              <i class="tip-icon">?</i>
+              <span class="tip-box">Weekly Active Users（直近週のアクティブユーザー数）。バーは6週間のトレンドを疑似表示。右端が直近値。数値右の%は6週前比変化率。🔴≤-50% / 🟡-50〜-15% / 🔵安定 / 🟢+20%以上。</span>
+            </span>
+          </th>
+          <th>
+            <span class="tip-wrap">未接触
+              <i class="tip-icon">?</i>
+              <span class="tip-box">Amplitudeの担当者（AE・CSM問わず）が最後に活動（メール・ミーティング等）を記録してからの経過日数。SFDCの「Last human activity」フィールドが基準。90日超で黄色、180日超で赤色に警告表示。</span>
+            </span>
+          </th>
           <th>オーナー</th>
           <th>Stage</th>
         </tr>
